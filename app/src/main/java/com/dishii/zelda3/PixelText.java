@@ -40,6 +40,15 @@ final class PixelText {
         pixels[(top + 6) * stride + left + 6] = 0;
     }
 
+    // One transparent pixel around the 8x8 glyph prevents sampling adjacent letters.
+    // Called only while loading the font, never while drawing text.
+    static int[] isolateLetter(int[] atlas, int stride, int left, int top) {
+        int[] pixels = new int[10 * 10];
+        for (int y = 0; y < 8; y++)
+            System.arraycopy(atlas, (top + y) * stride + left, pixels, (y + 1) * 10 + 1, 8);
+        return pixels;
+    }
+
     static float width(String text) {
         float width = 0;
         for (int i = 0; i < text.length(); i++) width += advance(text.charAt(i));

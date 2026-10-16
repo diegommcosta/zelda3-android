@@ -29,6 +29,29 @@ public final class SecondScreenTextTest {
             check(sheet[y * 128 + x] == (y == 6 && (x == 93 || x == 94) ? 0 : 0xfff8f8f8),
                     "only the final two pixels of the L foot change");
         check(PixelText.advance('L') == 8, "L keeps original advance");
+        // Distinct neighboring cells make accidental atlas reads visible to this test.
+        int[] atlas = new int[128 * 16];
+        for (int y = 0; y < 16; y++) for (int x = 0; x < 128; x++)
+            atlas[y * 128 + x] = (x + y) % 3 == 0 ? 0 : 0xff000000 | (y * 128 + x);
+        PixelText.shortenLetterL(atlas, 128, 88, 0);
+        for (int letter = 0; letter < 26; letter++) {
+            int left = (letter % 16) * 8, top = (letter / 16) * 8;
+            int[] isolated = PixelText.isolateLetter(atlas, 128, left, top);
+            check(isolated.length == 100, "10x10 padded bitmap");
+            for (int y = 0; y < 10; y++) for (int x = 0; x < 10; x++) {
+                int expected = x == 0 || y == 0 || x == 9 || y == 9 ? 0
+                        : atlas[(top + y - 1) * 128 + left + x - 1];
+                check(isolated[y * 10 + x] == expected, "exact glyph copy and transparent border");
+            }
+        }
+        for (String label : new String[]{"TELA CHEIA", "TROCAR TELAS", "COM L R",
+                "TELA SUPERIOR", "DESLIGADO"}) {
+            for (float scale : new float[]{0.75f, 1.25f, 1.7f, 2.4f, 3f}) {
+                PixelText.Layout layout = PixelText.fit(label, 640, 64, scale, 1);
+                check(layout.scale == scale, "isolation preserves label metrics at fractional scales");
+            }
+        }
+
         for (SecondScreenText language : new SecondScreenText[]{pt, new SecondScreenText("en")}) {
             String[][] cases = {{"TURN WHILE DASH", "ON", "OFF"},
                     {"SWAP SCREENS", "ON", "OFF", "RESTART"},

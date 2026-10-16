@@ -72,10 +72,11 @@ public class MinimapView extends View {
     private final Paint aa = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     // ---------- assets ----------
-    private Bitmap mapLight, mapDark, icons, glyphs, letters, linkFace;
+    private Bitmap mapLight, mapDark, icons, glyphs, linkFace;
     private final Map<String, Rect> iconRects = new HashMap<>();
     private final Map<String, Rect> glyphRects = new HashMap<>();
     private final Map<String, Rect> letterRects = new HashMap<>();
+    private final Map<String, Bitmap> letterBitmaps = new HashMap<>();
     private Dungeon[] dungeons;
 
     private static class Dungeon {
@@ -332,7 +333,12 @@ public class MinimapView extends View {
             GameState.renderLetterSheet(buf);
             Rect letterL = letterRects.get("L");
             PixelText.shortenLetterL(buf, 128, letterL.left, letterL.top);
-            letters = Bitmap.createBitmap(buf, 128, 16, Bitmap.Config.ARGB_8888);
+            letterBitmaps.clear();
+            for (Map.Entry<String, Rect> entry : letterRects.entrySet()) {
+                Rect rect = entry.getValue();
+                int[] pixels = PixelText.isolateLetter(buf, 128, rect.left, rect.top);
+                letterBitmaps.put(entry.getKey(), Bitmap.createBitmap(pixels, 10, 10, Bitmap.Config.ARGB_8888));
+            }
             buf = new int[16 * 16];
             GameState.renderLinkFace(buf, 0);
             linkFace = Bitmap.createScaledBitmap(
@@ -610,7 +616,12 @@ public class MinimapView extends View {
                 continue;
             }
             char base = PixelText.base(ch);
-            drawSprite(c, letters, letterRects.get(String.valueOf(base)), cx, y, s);
+            Bitmap letter = letterBitmaps.get(String.valueOf(base));
+            if (letter != null) {
+                // Offset the transparent margin so the original glyph stays at (cx, y).
+                dst.set(cx - s, y - s, cx + 9*s, y + 9*s);
+                c.drawBitmap(letter, null, dst, bmp);
+            }
             int[][] marks = PixelText.accent(ch);
             for (int pass = 0; pass < 2; pass++) {
                 accentPaint.setColor(pass == 0 ? Color.rgb(40, 40, 48) : Color.rgb(248, 248, 248));
