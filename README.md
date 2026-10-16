@@ -97,3 +97,25 @@ To use an MSU-1 audio pack instead of the built-in music:
 1. Copy the pack files (`alttp_msu-1.pcm`, `alttp_msu-2.pcm`, ...) into `Android/data/com.dishii.zelda3/files/msu/`.
 2. In `Android/data/com.dishii.zelda3/files/zelda3.ini`, set `EnableMSU = true`, `MSUPath = msu/alttp_msu-`, and `AudioFreq = 44100` (use `48000` for OPUZ packs).
 3. Relaunch the game.
+
+### Quick states and controller shortcuts (Android)
+
+The first card in **SAVE STATES** is **QUICK STATE** (PT-BR: **ESTADO RÁPIDO**).
+It shares `saves/save1.sav` with the settings **SAVE STATE / LOAD STATE** buttons
+and the controller shortcuts. Existing manual slots 1–4 still use `save2.sav`
+through `save5.sav`; autosave remains separate in `save0.sav`.
+Old quick states without a preview remain loadable and show **NO IMAGE**.
+
+**REMAP BUTTONS** now includes **SAVE** and **LOAD**, initially R2 and L2 when
+those buttons are unused. Select a command and press/release a controller button,
+or select **CLEAR** to disable its binding. Moving an occupied button requires
+confirmation. Custom INI combinations are protected and must be edited in the INI.
+`[GamepadMap] QuickSave` and `QuickLoad` store these assignments; an empty value
+means disabled. Saving/loading happens once per press and reports its result on
+the second screen. The autosave lifecycle behavior is unchanged by this feature.
+
+Host verification: `python -m unittest discover -s tools/tests -p 'test_*.py' -v`.
+Native mapping and save-failure tests run on Windows with the configured Android
+NDK (or `ANDROID_NDK_HOME`); they compile production functions with fake I/O and
+require no ROM. Device verification should cover R2/L2, reassignment to R3/L3,
+clearing a binding, transfer/cancel, and saving/loading from all three entry points.

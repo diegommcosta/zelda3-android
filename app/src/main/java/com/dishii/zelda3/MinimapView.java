@@ -148,7 +148,7 @@ public class MinimapView extends View {
     private final RectF tabItemsR = new RectF(), tabGearR = new RectF(), tabMapR = new RectF();
     private final RectF tabSettingsR = new RectF(), remapBackR = new RectF();
     private final RectF[] settingsRowR = new RectF[12 + FEAT_MASKS.length];
-    private final RectF[] remapRowR = new RectF[12];
+    private final RectF[] remapRowR = new RectF[14];
     private final RectF mapAreaR = new RectF(), yRingR = new RectF(), xRingR = new RectF();
 
     // settings state
@@ -159,7 +159,7 @@ public class MinimapView extends View {
     private boolean remapMode = false;
     private int remapArm = -1;          // command index waiting for a button press
     private long remapArmAt;
-    private final int[] padControls = new int[12];
+    private final int[] padControls = new int[14];
     private boolean hudPrefApplied = false;
     private boolean xRingFeatChecked = false;
     private boolean xRing = false;      // second ring with the X-assigned item (ItemSwitchLR)
@@ -181,20 +181,28 @@ public class MinimapView extends View {
     private String msuOnValue = "true";
     private int armedRing = 0;          // 1/2 = next items-grid tap assigns Y/X
     private static final String[] PAD_CMD_NAMES = {
-        "UP", "DOWN", "LEFT", "RIGHT", "SELECT", "START", "A", "B", "X", "Y", "L", "R",
+        "UP", "DOWN", "LEFT", "RIGHT", "SELECT", "START", "A", "B", "X", "Y", "L", "R", "SAVE", "LOAD",
     };
 
-    // save-state picker (SAVE STATES sub-screen): four slots of its own, from
-    // saves/save2.sav up - slot 0 is the autosave and slot 1 the quick save.
-    private static final int STATE_SLOT0 = 2, STATE_SLOTS = 4;
+    // Card 0 is the quick state; cards 1-4 retain native slots 2-5.
+    private static final int STATE_SLOTS = SaveStateUi.SLOT_COUNT;
     private boolean statesMode = false;
     private final RectF statesBackR = new RectF();
     private final RectF[] stateSaveR = new RectF[STATE_SLOTS], stateLoadR = new RectF[STATE_SLOTS];
     private final Bitmap[] stateThumb = new Bitmap[STATE_SLOTS];
     private final long[] stateStamp = new long[STATE_SLOTS];   // .sav mtime, 0 = empty slot
     private final int[] thumbBuf = new int[GameState.THUMB_W * GameState.THUMB_H];
-    private int thumbWantSlot = -1;      // a save waiting for its frame grab
-    private long thumbWantAt;
+    private final int[] thumbMeta = new int[2];
+    private String saveNotice;
+    private long saveNoticeUntil;
+    private final RectF remapClearR = new RectF();
+    private float remapScroll, remapMaxScroll, remapListTop, remapListBot;
+    private boolean remapTouch, remapScrolling;
+    private float remapTouchStartY, remapTouchLastY;
+    private boolean remapConfirm, remapCustom;
+    private int confirmCommand, confirmButton;
+    private String confirmSource;
+    private final RectF confirmYesR = new RectF(), confirmNoR = new RectF();
     private int stateFlashSlot = -1;     // brief SAVED / LOADED banner on one card
     private String stateFlashMsg;
     private long stateFlashUntil;
@@ -441,7 +449,7 @@ public class MinimapView extends View {
         // generate the art from zelda3_assets.dat once the engine has loaded it
         if (!artReady && !nativeBroken) artReady = tryLoadNativeArt();
 
-        if (!nativeBroken) pollStateThumbnail();
+        if (!nativeBroken) { pollStateResult(); pollStateThumbnail(); }
 
         // re-apply the persisted top-screen HUD choice once per app start
         if (!hudPrefApplied && !nativeBroken) {
@@ -494,6 +502,10 @@ public class MinimapView extends View {
             uiMode = MODE_CINEMA;
         if (uiMode != MODE_GAME || !artReady) {
             drawCinemaScreen(canvas, w, h);
+            if (artReady) {
+                drawSaveNotice(canvas, w, h);
+                if (remapConfirm) drawRemapConfirmation(canvas, w, h);
+            }
             if (isAttachedToWindow()) postInvalidateOnAnimation();
             return;
         }
@@ -527,6 +539,8 @@ public class MinimapView extends View {
         }
         drawSidebar(canvas, w - sideW + 4 * u, 10 * u, sideW - 14 * u, h - tabH - 14 * u, dungeonMode);
         drawTabBar(canvas, w, h, tabH);
+        drawSaveNotice(canvas, w, h);
+        if (remapConfirm) drawRemapConfirmation(canvas, w, h);
         if (crtBottom) drawScanlines(canvas, w, h);
 
         if (isAttachedToWindow()) postInvalidateOnAnimation();
@@ -1141,19 +1155,14 @@ public class MinimapView extends View {
                 scanStateSlots();
                 statesMode = true;
             } else if (i == 1) {
-                GameState.getGamepadControls(padControls);
+                GameState.getGamepadBindings(padControls);
                 remapMode = true;
             } else if (i == 2) {
                 stateFile().getParentFile().mkdirs();
                 GameState.saveState();
-                rowFlashSet(i, "SAVED");
+
             } else if (i == 3) {
-                if (stateFile().exists()) {
-                    GameState.loadState();
-                    rowFlashSet(i, "LOADED");
-                } else {
-                    rowFlashSet(i, "EMPTY");
-                }
+                GameState.loadState();
             } else if (i == 4) {
                 autosave = !autosave;
                 GameState.setAutosave(autosave);
@@ -1216,7 +1225,8 @@ public class MinimapView extends View {
     }
 
     private void drawRemapPanel(Canvas c, RectF r) {
-        drawTitle(c, "REMAP BUTTONS", r, 155 * u);
+        fittedText(c, uiText.get("REMAP BUTTONS"), r.left + 155*u, r.top + 10*u,
+                r.right - (remapArm >= 0 ? 160*u : 20*u), r.top + 52*u, 3*u, 1, 1);
         remapBackR.set(r.left + 20 * u, r.top + 12 * u, r.left + 140 * u, r.top + 50 * u);
         fill.setColor(Color.rgb(28, 28, 28));
         c.drawRoundRect(remapBackR, 8 * u, 8 * u, fill);
@@ -1228,21 +1238,32 @@ public class MinimapView extends View {
         if (remapArm >= 0 && !nativeBroken) {
             int b = GameState.getCapturedButton();
             if (b >= 0) {
-                padControls[remapArm] = b;
-                GameState.setGamepadControls(padControls);
-                writeIniGamepadControls();
+                int command = remapArm;
                 remapArm = -1;
+                offerBinding(command, b);
             } else if (b == -1 || System.nanoTime() - remapArmAt > 8_000_000_000L) {
                 GameState.armButtonCapture(false);
                 remapArm = -1;
             }
         }
 
+        remapClearR.setEmpty();
+        if (remapArm >= 0) {
+            remapClearR.set(r.right - 148*u, r.top + 12*u, r.right - 20*u, r.top + 50*u);
+            fill.setColor(COL_GOLD_DARK);
+            c.drawRoundRect(remapClearR, 6*u, 6*u, fill);
+            drawStateButton(c, remapClearR, "CLEAR", true);
+        }
         float rowH = 58 * u, gap = 12 * u;
         float colW = (r.width() - 3 * 24 * u) / 2;
-        float y0 = r.top + 70 * u;
-        for (int i = 0; i < 12; i++) {
-            int col = i / 6, rowI = i % 6;
+        remapListTop = r.top + 70*u; remapListBot = r.bottom - 16*u;
+        remapMaxScroll = Math.max(0, 7 * (rowH + gap) - gap - (remapListBot - remapListTop));
+        remapScroll = clamp(remapScroll, 0, remapMaxScroll);
+        float y0 = remapListTop - remapScroll;
+        c.save(); c.clipRect(r.left, remapListTop, r.right, remapListBot);
+        for (int i = 0; i < padControls.length; i++) {
+            // Keep the existing six rows in each column; append SAVE/LOAD as row seven.
+            int col = i < 12 ? i / 6 : i - 12, rowI = i < 12 ? i % 6 : 6;
             float x = r.left + 24 * u + col * (colW + 24 * u);
             float y = y0 + rowI * (rowH + gap);
             RectF row = remapRowR[i];
@@ -1256,9 +1277,10 @@ public class MinimapView extends View {
 
             String v = armed ? uiText.get("PRESS KEY")
                     : (padControls[i] >= 0 && padControls[i] < GameState.PAD_BUTTON_LABEL.length
-                       ? GameState.PAD_BUTTON_LABEL[padControls[i]] : "----");
+                       ? GameState.PAD_BUTTON_LABEL[padControls[i]] : uiText.get("UNBOUND"));
             drawRowText(c, row, uiText.get(PAD_CMD_NAMES[i]), v, 2.2f*u);
         }
+        c.restore();
     }
 
     // The settings-screen save state; slot 0 is reserved for the Autosave option.
@@ -1343,7 +1365,7 @@ public class MinimapView extends View {
             drawStateButton(c, stateLoadR[i], "LOAD", stateStamp[i] != 0);
 
             float lx = tx + tw + pad * 1.5f;
-            fittedText(c, uiText.get("SLOT") + " " + (i + 1), lx, ty, bx - 8*u, ty + 32*u, 2.4f*u, 1, 0);
+            fittedText(c, SaveStateUi.title(i, uiText), lx, ty, bx - 8*u, ty + 32*u, 2.4f*u, 1, 0);
             String note = lit ? stateFlashMsg : (stateStamp[i] == 0 ? "EMPTY" : stamp(stateStamp[i]));
             fittedText(c, uiText.get(note), lx, ty + 32*u, bx - 8*u, ty + th, 2*u, 2, 0);
         }
@@ -1399,50 +1421,54 @@ public class MinimapView extends View {
     private void scanStateSlots() {
         java.io.File dir = savesDir();
         for (int i = 0; i < STATE_SLOTS; i++) {
-            java.io.File sav = new java.io.File(dir, "save" + (STATE_SLOT0 + i) + ".sav");
+            java.io.File sav = new java.io.File(dir, "save" + (SaveStateUi.slot(i)) + ".sav");
             stateStamp[i] = sav.isFile() && sav.length() > 0 ? sav.lastModified() : 0;
-            java.io.File png = new java.io.File(dir, "save" + (STATE_SLOT0 + i) + ".png");
+            java.io.File png = new java.io.File(dir, "save" + (SaveStateUi.slot(i)) + ".png");
             stateThumb[i] = stateStamp[i] != 0 && png.isFile()
                     ? BitmapFactory.decodeFile(png.getPath()) : null;
         }
     }
 
     private void requestState(int i, boolean save) {
-        if (save) {
-            GameState.requestSaveState(STATE_SLOT0 + i);
-            thumbWantSlot = i;
-            thumbWantAt = System.nanoTime();
-        } else {
-            GameState.requestLoadState(STATE_SLOT0 + i);
-        }
-        stateFlashSlot = i;
-        stateFlashMsg = save ? "SAVED" : "LOADED";
-        stateFlashUntil = System.nanoTime() + 1_200_000_000L;
+        if (save) GameState.requestSaveState(SaveStateUi.slot(i));
+        else GameState.requestLoadState(SaveStateUi.slot(i));
     }
 
-    // A save asks the game thread for a grab of the frame it was taken on; that
-    // lands a frame or two later, so it is picked up here (from onDraw, so it
-    // still completes if the panel is left right after tapping SAVE) and written
-    // next to the .sav as saveN.png.
+    private void pollStateResult() {
+        int event = GameState.pollStateResult();
+        if (event == 0) return;
+        int result = event & 255, slot = event >>> 8;
+        saveNotice = result == 1 ? "SAVED" : result == 2 ? "LOADED" : result == 3 ? "EMPTY" : "ERROR";
+        saveNoticeUntil = System.nanoTime() + 1_200_000_000L;
+        stateFlashSlot = slot - 1;
+        stateFlashMsg = saveNotice;
+        stateFlashUntil = saveNoticeUntil;
+        if (slot == 1) rowFlashSet(result == 1 ? 2 : 3, saveNotice);
+        scanStateSlots();
+    }
+
+    private void drawSaveNotice(Canvas c, int width, int height) {
+        if (saveNotice == null || System.nanoTime() >= saveNoticeUntil) return;
+        float half = Math.min(width * .45f, 220*u);
+        float bottom = height - 110*u;
+        fill.setColor(Color.rgb(28, 28, 28));
+        c.drawRoundRect(width/2f-half, bottom-58*u, width/2f+half, bottom, 8*u, 8*u, fill);
+        fittedText(c, uiText.get(saveNotice), width/2f-half+12*u, bottom-54*u,
+                width/2f+half-12*u, bottom-4*u, 2.4f*u, 1, 1);
+    }
+
+    // Native slot + generation travel with the frame, including saves made by gamepad.
     private void pollStateThumbnail() {
-        if (thumbWantSlot < 0) return;
-        if (GameState.takeStateThumbnail(thumbBuf)) {
-            int i = thumbWantSlot;
-            thumbWantSlot = -1;
-            java.io.File dir = savesDir();
-            Bitmap b = Bitmap.createBitmap(thumbBuf, GameState.THUMB_W, GameState.THUMB_H,
-                    Bitmap.Config.ARGB_8888);
-            java.io.File png = new java.io.File(dir, "save" + (STATE_SLOT0 + i) + ".png");
-            try (java.io.FileOutputStream out = new java.io.FileOutputStream(png)) {
-                b.compress(Bitmap.CompressFormat.PNG, 100, out);
-            } catch (java.io.IOException e) {
-                Log.w(TAG, "failed to write " + png, e);
-            }
-            stateThumb[i] = b;
-            stateStamp[i] = new java.io.File(dir, "save" + (STATE_SLOT0 + i) + ".sav").lastModified();
-        } else if (System.nanoTime() - thumbWantAt > 3_000_000_000L) {
-            thumbWantSlot = -1;   // no frame came (game paused?); the .sav is still there
-            scanStateSlots();
+        if (!GameState.takeStateThumbnailWithId(thumbBuf, thumbMeta)) return;
+        int slot = thumbMeta[0];
+        if (slot < 1 || slot > STATE_SLOTS) return;
+        Bitmap b = Bitmap.createBitmap(thumbBuf, GameState.THUMB_W, GameState.THUMB_H,
+                Bitmap.Config.ARGB_8888);
+        java.io.ByteArrayOutputStream png = new java.io.ByteArrayOutputStream();
+        if (b.compress(Bitmap.CompressFormat.PNG, 100, png)
+                && GameState.commitStateThumbnail(slot, thumbMeta[1], png.toByteArray())) {
+            stateThumb[slot - 1] = b;
+            stateStamp[slot - 1] = new java.io.File(savesDir(), "save" + slot + ".sav").lastModified();
         }
     }
 
@@ -1538,14 +1564,82 @@ public class MinimapView extends View {
         return false;
     }
 
+    private String bindingName(int index) {
+        int b = padControls[index];
+        return b >= 0 && b < GameState.PAD_BUTTON_INI.length ? GameState.PAD_BUTTON_INI[b] : "";
+    }
+
     private void writeIniGamepadControls() {
-        StringBuilder v = new StringBuilder();
-        for (int i = 0; i < 12; i++) {
-            if (i > 0) v.append(", ");
-            if (padControls[i] >= 0 && padControls[i] < GameState.PAD_BUTTON_INI.length)
-                v.append(GameState.PAD_BUTTON_INI[padControls[i]]);
+        String[] controls = new String[12];
+        for (int i = 0; i < 12; i++) controls[i] = bindingName(i);
+        updateIni("[GamepadMap]", "Controls", SaveStateUi.mergeControls(readIni("[GamepadMap]", "Controls"), controls));
+        if (!customCommand(12)) updateIni("[GamepadMap]", "QuickSave", bindingName(12));
+        if (!customCommand(13)) updateIni("[GamepadMap]", "QuickLoad", bindingName(13));
+    }
+
+    private boolean customCommand(int command) {
+        String value = readIni("[GamepadMap]", command < 12 ? "Controls" : command == 12 ? "QuickSave" : "QuickLoad");
+        if (value == null) return false;
+        if (command >= 12) return value.contains("+");
+        String[] parts = value.split(",", -1);
+        return command < parts.length && parts[command].contains("+");
+    }
+
+    private void applyBinding(int command, int button) {
+        SaveStateUi.assign(padControls, command, button);
+        GameState.setGamepadBindings(padControls);
+        writeIniGamepadControls();
+    }
+
+    private void offerBinding(final int command, final int button) {
+        if (button >= 0 && (GameState.getProtectedButtons() & (1 << button)) != 0) {
+            showCustomBinding(); return;
         }
-        updateIni("[GamepadMap]", "Controls", v.toString());
+        int conflict = SaveStateUi.conflict(padControls, command, button);
+        if (conflict < 0) { applyBinding(command, button); return; }
+        confirmCommand = command; confirmButton = button;
+        confirmSource = uiText.get(PAD_CMD_NAMES[conflict]);
+        remapCustom = false; remapConfirm = true;
+        GameState.blockGamepadForDialog(true);
+    }
+
+    private void showCustomBinding() {
+        remapCustom = true; remapConfirm = true;
+        GameState.blockGamepadForDialog(true);
+    }
+
+    private void drawRemapConfirmation(Canvas c, int w, int h) {
+        fill.setColor(Color.argb(210, 0, 0, 0)); c.drawRect(0, 0, w, h, fill);
+        float left = 24*u, right = w - 24*u, top = h/2f - 150*u, bottom = h/2f + 150*u;
+        fill.setColor(Color.rgb(28, 28, 28)); c.drawRoundRect(left, top, right, bottom, 8*u, 8*u, fill);
+        fittedText(c, uiText.get(remapCustom ? "CUSTOM BINDING" : "TRANSFER BUTTON"),
+                left+16*u, top+12*u, right-16*u, top+70*u, 2.6f*u, 1, 1);
+        String message = remapCustom ? uiText.get("EDIT IN INI")
+                : GameState.PAD_BUTTON_LABEL[confirmButton] + "  " + confirmSource
+                    + "  " + uiText.get("TO") + "  " + uiText.get(PAD_CMD_NAMES[confirmCommand]);
+        fittedText(c, message, left+16*u, top+78*u, right-16*u, bottom-88*u, 2.4f*u, 2, 1);
+        float mid = (left+right)/2;
+        confirmYesR.set(left+20*u, bottom-70*u, mid-10*u, bottom-18*u);
+        confirmNoR.set(mid+10*u, bottom-70*u, right-20*u, bottom-18*u);
+        if (remapCustom) { confirmYesR.right = right-20*u; confirmNoR.setEmpty(); }
+        fill.setColor(COL_GOLD_DARK);
+        c.drawRoundRect(confirmYesR, 6*u, 6*u, fill);
+        drawStateButton(c, confirmYesR, remapCustom ? "OK" : "TRANSFER", true);
+        if (!remapCustom) {
+            c.drawRoundRect(confirmNoR, 6*u, 6*u, fill);
+            drawStateButton(c, confirmNoR, "CANCEL", true);
+        }
+    }
+
+    private void remapTap(float x, float y) {
+        if (y < remapListTop || y > remapListBot || nativeBroken) return;
+        for (int i = 0; i < padControls.length; i++) {
+            if (!remapRowR[i].contains(x, y)) continue;
+            if (customCommand(i)) { showCustomBinding(); return; }
+            if (remapArm == i) { GameState.armButtonCapture(false); remapArm = -1; }
+            else { remapArm = i; remapArmAt = System.nanoTime(); GameState.armButtonCapture(true); }
+            return;
+        }
     }
 
     // ---------- sidebar ----------
@@ -2028,6 +2122,17 @@ public class MinimapView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
+        if (remapConfirm) {
+            if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                boolean yes = confirmYesR.contains(ev.getX(), ev.getY());
+                if (yes || confirmNoR.contains(ev.getX(), ev.getY())) {
+                    remapConfirm = false;
+                    GameState.blockGamepadForDialog(false);
+                    if (yes && !remapCustom) applyBinding(confirmCommand, confirmButton);
+                }
+            }
+            return true;
+        }
         if (uiMode != MODE_GAME) return true;   // no touch UI on title/cutscene screens
         float x = ev.getX(), y = ev.getY();
         int action = ev.getActionMasked();
@@ -2035,6 +2140,16 @@ public class MinimapView extends View {
         // the settings list scrolls, so its taps resolve on UP (a drag is not a tap)
         if (action == MotionEvent.ACTION_MOVE || action == MotionEvent.ACTION_UP
                 || action == MotionEvent.ACTION_CANCEL) {
+            if (remapTouch) {
+                if (action == MotionEvent.ACTION_MOVE) {
+                    if (Math.abs(y - remapTouchStartY) > 18*u) remapScrolling = true;
+                    if (remapScrolling) remapScroll = clamp(remapScroll + remapTouchLastY - y, 0, remapMaxScroll);
+                    remapTouchLastY = y;
+                } else {
+                    if (action == MotionEvent.ACTION_UP && !remapScrolling && remapMode) remapTap(x, y);
+                    remapTouch = false;
+                }
+            }
             if (statesTouch) {
                 if (action == MotionEvent.ACTION_MOVE) {
                     if (Math.abs(y - statesTouchStartY) > 18 * u) statesScrolling = true;
@@ -2101,18 +2216,13 @@ public class MinimapView extends View {
                 return true;
             } else if (remapMode) {
                 if (remapBackR.contains(x, y)) { leaveSubPanel(); return true; }
-                for (int i = 0; i < 12; i++) {
-                    if (remapRowR[i].contains(x, y) && !nativeBroken) {
-                        if (remapArm == i) {
-                            GameState.armButtonCapture(false);
-                            remapArm = -1;
-                        } else {
-                            remapArm = i;
-                            remapArmAt = System.nanoTime();
-                            GameState.armButtonCapture(true);
-                        }
-                        return true;
-                    }
+                if (remapArm >= 0 && remapClearR.contains(x, y)) {
+                    int command = remapArm; remapArm = -1;
+                    GameState.armButtonCapture(false); applyBinding(command, -1); return true;
+                }
+                if (mapAreaR.contains(x, y)) {
+                    remapTouch = true; remapScrolling = false;
+                    remapTouchStartY = remapTouchLastY = y;
                 }
             } else if (mapAreaR.contains(x, y)) {
                 // taps and drag-scrolling in the list are resolved on MOVE/UP
@@ -2191,7 +2301,16 @@ public class MinimapView extends View {
         return true;
     }
 
+    @Override
+    protected void onDetachedFromWindow() {
+        leaveSubPanel();
+        super.onDetachedFromWindow();
+    }
+
     private void leaveSubPanel() {
+        if (remapConfirm && !nativeBroken) GameState.blockGamepadForDialog(false);
+        remapConfirm = false;
+        remapTouch = false;
         if (remapArm >= 0 && !nativeBroken) GameState.armButtonCapture(false);
         remapArm = -1;
         remapMode = false;

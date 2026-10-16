@@ -10,6 +10,20 @@ public final class SecondScreenTextTest {
 
     public static void main(String[] args) {
         SecondScreenText pt = new SecondScreenText(" PT-BR ");
+        check(SaveStateUi.slot(0) == 1, "quick save is native slot 1");
+        for (int i = 1; i <= 4; i++) check(SaveStateUi.slot(i) == i + 1, "manual files never shift");
+        check(SaveStateUi.title(0, new SecondScreenText("pt-br")).equals("ESTADO RÁPIDO"), "quick title");
+        check(SaveStateUi.title(1, new SecondScreenText("pt-br")).equals("ESPAÇO 1"), "manual numbering");
+        int[] bindings = new int[14];
+        java.util.Arrays.fill(bindings, -1); bindings[6] = 0; bindings[12] = 16;
+        check(SaveStateUi.conflict(bindings, 12, 0) == 6, "find occupied button");
+        SaveStateUi.assign(bindings, 12, 0);
+        check(bindings[6] == -1 && bindings[12] == 0, "confirmed transfer clears previous command");
+        SaveStateUi.assign(bindings, 12, -1);
+        check(bindings[12] == -1, "clear disables command");
+        check(SaveStateUi.mergeControls("Back+A, B", new String[]{"X", "Y"}).equals("Back+A, Y"),
+                "custom combination survives writing other commands");
+
         check(PixelText.supports('.'), "abbreviated tab needs a period glyph");
         check(PixelText.width("EQUIP.") == 44, "period uses four pixels of advance");
         check(pt.gearTab().equals("EQUIP."), "short Portuguese tab");

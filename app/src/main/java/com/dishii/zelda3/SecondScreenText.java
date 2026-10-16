@@ -10,6 +10,10 @@ final class SecondScreenText {
     static {
         Map<String, String> t = new LinkedHashMap<String, String>();
         String[][] pairs = {
+            {"QUICK STATE", "ESTADO RÁPIDO"}, {"CLEAR", "LIMPAR"}, {"UNBOUND", "SEM BOTÃO"},
+            {"TRANSFER BUTTON", "TRANSFERIR BOTÃO"}, {"TRANSFER", "TRANSFERIR"}, {"CANCEL", "CANCELAR"},
+            {"CUSTOM BINDING", "MAPEAMENTO PERSONALIZADO"},
+            {"EDIT IN INI", "EDITE NO INI"}, {"ERROR", "ERRO"}, {"OK", "OK"}, {"TO", "PARA"},
             {"GEAR", "EQUIPAMENTOS"}, {"MAP", "MAPA"}, {"ITEMS", "ITENS"},
             {"SETTINGS", "CONFIGURAÇÕES"}, {"BACK", "VOLTAR"},
             {"SAVE STATES", "ESTADOS SALVOS"}, {"REMAP BUTTONS", "MAPEAR BOTÕES"},

@@ -15,7 +15,7 @@ class SecondScreenBehavior(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='zelda3-ui-tests-') as directory:
             subprocess.run(['javac', '-encoding', 'UTF-8', '--release', '8', '-Xlint:-options',
                             '-d', directory, str(sources / 'SecondScreenText.java'),
-                            str(sources / 'PixelText.java'),
+                            str(sources / 'PixelText.java'), str(sources / 'SaveStateUi.java'),
                             str(ROOT / 'tools/tests/SecondScreenTextTest.java')], check=True)
             subprocess.run(['java', '-cp', directory, 'com.dishii.zelda3.SecondScreenTextTest'], check=True)
 
