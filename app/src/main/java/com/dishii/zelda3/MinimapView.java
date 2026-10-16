@@ -41,6 +41,8 @@ import java.util.Map;
 public class MinimapView extends View {
 
     private static final String TAG = "Zelda3SecondScreen";
+    private final SecondScreenText uiText;
+    private final Paint accentPaint = new Paint();
 
     // ---------- palette ----------
     private static final int COL_GOLD = Color.rgb(232, 194, 96);
@@ -257,6 +259,7 @@ public class MinimapView extends View {
 
     public MinimapView(Context context) {
         super(context);
+        uiText = new SecondScreenText(readIni("[General]", "Language"));
         bmp.setFilterBitmap(false);
         stroke.setStyle(Paint.Style.STROKE);
         for (int i = 0; i < plaqueR.length; i++) plaqueR[i] = new RectF();
@@ -327,6 +330,8 @@ public class MinimapView extends View {
             glyphs = Bitmap.createBitmap(buf, 96, 32, Bitmap.Config.ARGB_8888);
             buf = new int[128 * 16];
             GameState.renderLetterSheet(buf);
+            Rect letterL = letterRects.get("L");
+            PixelText.shortenLetterL(buf, 128, letterL.left, letterL.top);
             letters = Bitmap.createBitmap(buf, 128, 16, Bitmap.Config.ARGB_8888);
             buf = new int[16 * 16];
             GameState.renderLinkFace(buf, 0);
@@ -583,21 +588,81 @@ public class MinimapView extends View {
     }
 
     private float drawText(Canvas c, String text, float x, float y, float s) {
+        return drawRawText(c, uiText.get(text), x, y, s);
+    }
+
+    // Raw rendering is also used for physical controller labels (BACK, START, A...).
+    private float drawRawText(Canvas c, String text, float x, float y, float s) {
         float cx = x;
         for (int i = 0; i < text.length(); i++) {
             char ch = text.charAt(i);
-            if (ch == ' ') { cx += 5 * s; continue; }
-            if (ch >= '0' && ch <= '9') { drawGlyph(c, "digit" + ch, cx, y, s); cx += 8 * s; continue; }
-            drawSprite(c, letters, letterRects.get(String.valueOf(ch)), cx, y, s);
-            cx += 8 * s;
+            float advance = PixelText.advance(ch) * s;
+            if (ch == ' ') { cx += advance; continue; }
+            if (ch >= '0' && ch <= '9') { drawGlyph(c, "digit" + ch, cx, y, s); cx += advance; continue; }
+            if (ch == '.') {
+                accentPaint.setColor(Color.rgb(40, 40, 48));
+                accentPaint.setAlpha(bmp.getAlpha());
+                c.drawRect(cx, y + 4*s, cx + 4*s, y + 8*s, accentPaint);
+                accentPaint.setColor(Color.rgb(248, 248, 248));
+                accentPaint.setAlpha(bmp.getAlpha());
+                c.drawRect(cx + s, y + 5*s, cx + 3*s, y + 7*s, accentPaint);
+                cx += advance;
+                continue;
+            }
+            char base = PixelText.base(ch);
+            drawSprite(c, letters, letterRects.get(String.valueOf(base)), cx, y, s);
+            int[][] marks = PixelText.accent(ch);
+            for (int pass = 0; pass < 2; pass++) {
+                accentPaint.setColor(pass == 0 ? Color.rgb(40, 40, 48) : Color.rgb(248, 248, 248));
+                accentPaint.setAlpha(bmp.getAlpha());
+                for (int[] point : marks) {
+                    float px = cx + point[0] * s, py = y + point[1] * s;
+                    float border = pass == 0 ? s : 0;
+                    c.drawRect(px - border, py - border, px + s + border, py + s + border, accentPaint);
+                }
+                if (ch == '-') c.drawRect(cx + 2*s, y + 3*s, cx + 6*s, y + 4*s, accentPaint);
+            }
+            cx += advance;
         }
         return cx - x;
     }
 
     private float textWidth(String text, float s) {
-        float w = 0;
-        for (int i = 0; i < text.length(); i++) w += (text.charAt(i) == ' ' ? 5 : 8) * s;
-        return w;
+        return PixelText.width(uiText.get(text)) * s;
+    }
+
+    // Bounds include the accent pixels above and below the original 8px letters.
+    private void fittedText(Canvas c, String text, float left, float top, float right,
+                            float bottom, float desired, int lines, int align) {
+        PixelText.Layout layout = PixelText.fit(text, right - left, bottom - top, desired, lines);
+        float lineH = PixelText.LINE_HEIGHT * layout.scale;
+        float y = (top + bottom - lineH * layout.lines.length) / 2 + 4 * layout.scale;
+        for (String line : layout.lines) {
+            float width = PixelText.width(line) * layout.scale;
+            float x = align == 0 ? left : align == 1 ? (left + right - width) / 2 : right - width;
+            drawRawText(c, line, x, y, layout.scale);
+            y += lineH;
+        }
+    }
+
+    private void drawTitle(Canvas c, String key, RectF r, float leftInset) {
+        fittedText(c, uiText.get(key), r.left + leftInset, r.top + 10*u,
+                r.right - 20*u, r.top + 52*u, 3*u, 1, 1);
+    }
+
+    private void drawRowText(Canvas c, RectF row, String label, String value, float desired) {
+        drawRowText(c, row, label, value, desired, value == null ? 0 : PixelText.width(value));
+    }
+
+    private void drawRowText(Canvas c, RectF row, String label, String value, float desired,
+                             float reservedValueWidth) {
+        float left = row.left + 22*u, right = row.right - 22*u;
+        float valueWidth = value == null ? 40*u
+                : Math.min((right - left) * 0.4f, reservedValueWidth * 2.4f*u);
+        float labelRight = right - valueWidth - 16*u;
+        fittedText(c, label, left, row.top + 6*u, labelRight, row.bottom - 6*u, desired, 2, 0);
+        if (value != null) fittedText(c, value, right - valueWidth, row.top + 6*u,
+                right, row.bottom - 6*u, 2.4f*u, 2, 2);
     }
 
     // ---------- overworld map ----------
@@ -687,7 +752,7 @@ public class MinimapView extends View {
         // hint at it; it goes away as soon as the player has a pin anywhere
         if (pinCount == 0) {
             String hint = "HOLD TO PIN";
-            float hs = 1.8f * u, hw = textWidth(hint, hs);
+            float hs = Math.min(1.8f*u, (r.width() - 40*u) / textWidth(hint, 1)), hw = textWidth(hint, hs);
             dst.set(r.centerX() - hw / 2 - 12 * u, r.bottom - 44 * u,
                     r.centerX() + hw / 2 + 12 * u, r.bottom - 14 * u);
             fill.setColor(COL_BOX);
@@ -837,6 +902,7 @@ public class MinimapView extends View {
 
         float bs = 3 * u;
         String name = d != null ? d.name : "DUNGEON";
+        bs = Math.min(bs, (r.width() - 60*u) / Math.max(1, textWidth(name, 1)));
         float tw = textWidth(name, bs);
         float bx = r.centerX() - tw / 2, by = r.top + 20 * u;
         fill.setColor(COL_STONE_INSET);
@@ -977,7 +1043,7 @@ public class MinimapView extends View {
             drawStatesPanel(c, r);
             return;
         }
-        drawText(c, "SETTINGS", r.centerX() - textWidth("SETTINGS", 3 * u) / 2, r.top + 18 * u, 3 * u);
+        drawTitle(c, "SETTINGS", r, 20 * u);
 
         boolean ws = false, crt = false, hudHidden = false;
         int feats = 0;
@@ -1005,7 +1071,6 @@ public class MinimapView extends View {
             c.drawRoundRect(row, 8 * u, 8 * u, fill);
             stroke.setStrokeWidth(3 * u); stroke.setColor(COL_GOLD_DARK);
             c.drawRoundRect(row, 8 * u, 8 * u, stroke);
-            float ty = row.centerY() - 12 * u;
             String label, v;
             if (i == 0) { label = "SAVE STATES"; v = null; }
             else if (i == 1) { label = "REMAP BUTTONS"; v = null; }
@@ -1031,15 +1096,13 @@ public class MinimapView extends View {
                 label = FEAT_LABELS[f];
                 v = (((feats & FEAT_MASKS[f]) != 0) ^ FEAT_INVERT[f]) ? "ON" : "OFF";
             }
-            drawText(c, label, row.left + 22 * u, ty, 3 * u);
+            drawRowText(c, row, uiText.get(label), v == null ? null : uiText.get(v), 3*u, uiText.settingValueWidth(label));
             if (v == null) {
                 // chevron for the remap sub-screen
                 aa.setStyle(Paint.Style.STROKE); aa.setStrokeWidth(5 * u); aa.setColor(COL_GOLD);
                 float ax = row.right - 40 * u, ay = row.centerY();
                 c.drawLine(ax - 8 * u, ay - 12 * u, ax + 6 * u, ay, aa);
                 c.drawLine(ax + 6 * u, ay, ax - 8 * u, ay + 12 * u, aa);
-            } else {
-                drawText(c, v, row.right - 22 * u - textWidth(v, 3 * u), ty, 3 * u);
             }
         }
         c.restore();
@@ -1142,14 +1205,13 @@ public class MinimapView extends View {
     }
 
     private void drawRemapPanel(Canvas c, RectF r) {
-        drawText(c, "REMAP BUTTONS", r.centerX() - textWidth("REMAP BUTTONS", 3 * u) / 2, r.top + 18 * u, 3 * u);
-        remapBackR.set(r.left + 20 * u, r.top + 12 * u, r.left + 110 * u, r.top + 50 * u);
+        drawTitle(c, "REMAP BUTTONS", r, 155 * u);
+        remapBackR.set(r.left + 20 * u, r.top + 12 * u, r.left + 140 * u, r.top + 50 * u);
         fill.setColor(Color.rgb(28, 28, 28));
         c.drawRoundRect(remapBackR, 8 * u, 8 * u, fill);
         stroke.setStrokeWidth(3 * u); stroke.setColor(COL_GOLD_DARK);
         c.drawRoundRect(remapBackR, 8 * u, 8 * u, stroke);
-        drawText(c, "BACK", remapBackR.centerX() - textWidth("BACK", 2.2f * u) / 2,
-                remapBackR.centerY() - 9 * u, 2.2f * u);
+        drawStateButton(c, remapBackR, "BACK", true);
 
         // resolve a pending capture from the game thread
         if (remapArm >= 0 && !nativeBroken) {
@@ -1180,11 +1242,11 @@ public class MinimapView extends View {
             stroke.setStrokeWidth(3 * u); stroke.setColor(armed ? COL_GOLD : COL_GOLD_DARK);
             c.drawRoundRect(row, 8 * u, 8 * u, stroke);
             float ty = row.centerY() - 9 * u;
-            drawText(c, PAD_CMD_NAMES[i], row.left + 14 * u, ty, 2.2f * u);
-            String v = armed ? "PRESS KEY"
+
+            String v = armed ? uiText.get("PRESS KEY")
                     : (padControls[i] >= 0 && padControls[i] < GameState.PAD_BUTTON_LABEL.length
                        ? GameState.PAD_BUTTON_LABEL[padControls[i]] : "----");
-            drawText(c, v, row.right - 14 * u - textWidth(v, 2.2f * u), ty, 2.2f * u);
+            drawRowText(c, row, uiText.get(PAD_CMD_NAMES[i]), v, 2.2f*u);
         }
     }
 
@@ -1209,14 +1271,13 @@ public class MinimapView extends View {
     // The SAVE STATES sub-screen: four slots, each showing the frame it was
     // saved on with its own SAVE and LOAD button.
     private void drawStatesPanel(Canvas c, RectF r) {
-        drawText(c, "SAVE STATES", r.centerX() - textWidth("SAVE STATES", 3 * u) / 2, r.top + 18 * u, 3 * u);
-        statesBackR.set(r.left + 20 * u, r.top + 12 * u, r.left + 110 * u, r.top + 50 * u);
+        drawTitle(c, "SAVE STATES", r, 155 * u);
+        statesBackR.set(r.left + 20 * u, r.top + 12 * u, r.left + 140 * u, r.top + 50 * u);
         fill.setColor(Color.rgb(28, 28, 28));
         c.drawRoundRect(statesBackR, 8 * u, 8 * u, fill);
         stroke.setStrokeWidth(3 * u); stroke.setColor(COL_GOLD_DARK);
         c.drawRoundRect(statesBackR, 8 * u, 8 * u, stroke);
-        drawText(c, "BACK", statesBackR.centerX() - textWidth("BACK", 2.2f * u) / 2,
-                statesBackR.centerY() - 9 * u, 2.2f * u);
+        drawStateButton(c, statesBackR, "BACK", true);
 
         // one full-width row per slot: thumbnail, then slot name over its
         // timestamp, then the two buttons - nothing shares a line, so the
@@ -1256,13 +1317,14 @@ public class MinimapView extends View {
                 c.drawBitmap(stateThumb[i], src, dst, bmp);
             } else {
                 String e = stateStamp[i] == 0 ? "EMPTY" : "NO IMAGE";
-                drawText(c, e, dst.centerX() - textWidth(e, 1.6f * u) / 2, dst.centerY() - 6 * u, 1.6f * u);
+                fittedText(c, uiText.get(e), dst.left + 4*u, dst.top + 4*u,
+                        dst.right - 4*u, dst.bottom - 4*u, 1.6f*u, 2, 1);
             }
             stroke.setStrokeWidth(2 * u); stroke.setColor(COL_GOLD_DARK);
             c.drawRect(dst, stroke);
 
             // SAVE is always live; LOAD only once the slot holds a state
-            float bw = 104 * u, bh = (th - pad) / 2;
+            float bw = 126 * u, bh = (th - pad) / 2;
             float bx = cx + cw - pad - bw;
             stateSaveR[i].set(bx, ty, bx + bw, ty + bh);
             stateLoadR[i].set(bx, ty + bh + pad, bx + bw, ty + th);
@@ -1270,9 +1332,9 @@ public class MinimapView extends View {
             drawStateButton(c, stateLoadR[i], "LOAD", stateStamp[i] != 0);
 
             float lx = tx + tw + pad * 1.5f;
-            drawText(c, "SLOT " + (i + 1), lx, ty + 6 * u, 2.4f * u);
+            fittedText(c, uiText.get("SLOT") + " " + (i + 1), lx, ty, bx - 8*u, ty + 32*u, 2.4f*u, 1, 0);
             String note = lit ? stateFlashMsg : (stateStamp[i] == 0 ? "EMPTY" : stamp(stateStamp[i]));
-            drawText(c, note, lx, ty + 34 * u, 2 * u);
+            fittedText(c, uiText.get(note), lx, ty + 32*u, bx - 8*u, ty + th, 2*u, 2, 0);
         }
         c.restore();
 
@@ -1304,16 +1366,17 @@ public class MinimapView extends View {
         stroke.setStrokeWidth(3 * u); stroke.setColor(enabled ? COL_GOLD_DARK : Color.rgb(52, 46, 30));
         c.drawRoundRect(b, 8 * u, 8 * u, stroke);
         bmp.setAlpha(enabled ? 255 : 90);
-        drawText(c, label, b.centerX() - textWidth(label, 2.4f * u) / 2, b.centerY() - 10 * u, 2.4f * u);
+        fittedText(c, uiText.get(label), b.left + 8*u, b.top + 3*u,
+                b.right - 8*u, b.bottom - 3*u, 2.4f*u, 1, 1);
         bmp.setAlpha(255);
     }
 
-    // The pixel font only has A-Z and digits, so a stamp reads "JUL 24 14 32".
-    private static String stamp(long ms) {
+    // Keep the compact timestamp format, with the month in the selected UI language.
+    private String stamp(long ms) {
         java.util.Calendar cal = java.util.Calendar.getInstance();
         cal.setTimeInMillis(ms);
         return String.format(java.util.Locale.US, "%s %02d %02d %02d",
-                MONTHS[cal.get(java.util.Calendar.MONTH)], cal.get(java.util.Calendar.DAY_OF_MONTH),
+                uiText.get(MONTHS[cal.get(java.util.Calendar.MONTH)]), cal.get(java.util.Calendar.DAY_OF_MONTH),
                 cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE));
     }
 
@@ -1647,7 +1710,7 @@ public class MinimapView extends View {
         tabGearR.set(x0, y, x0 + bw, y + bh);
         tabMapR.set(x0 + bw + tgap, y, x0 + 2 * bw + tgap, y + bh);
         tabItemsR.set(x0 + 2 * (bw + tgap), y, x0 + 3 * bw + 2 * tgap, y + bh);
-        drawTabButton(c, tabGearR, "GEAR", tab == TAB_GEAR);
+        drawTabButton(c, tabGearR, uiText.gearTab(), tab == TAB_GEAR);
         drawTabButton(c, tabMapR, "MAP", tab == TAB_MAP);
         drawTabButton(c, tabItemsR, "ITEMS", tab == TAB_ITEMS);
         drawTabButton(c, tabSettingsR, null, tab == TAB_SETTINGS);
@@ -1681,7 +1744,8 @@ public class MinimapView extends View {
         c.drawRoundRect(r.left + 3 * u, r.top + 3 * u, r.right - 3 * u, r.bottom - 3 * u, 8 * u, 8 * u, stroke);
         float s = 3 * u;
         if (label != null)
-            drawText(c, label, r.centerX() - textWidth(label, s) / 2, r.centerY() - 4 * s, s);
+            fittedText(c, uiText.get(label), r.left + 12*u, r.top + 6*u,
+                    r.right - 12*u, r.bottom - 6*u, s, 1, 1);
     }
 
     // ---------- title / cutscene screens ----------
@@ -1740,7 +1804,7 @@ public class MinimapView extends View {
 
     private void drawItemsPanel(Canvas c, RectF r) {
         menuBox(c, r, COL_BOX_BORDER);
-        drawText(c, "ITEMS", r.centerX() - textWidth("ITEMS", 3 * u) / 2, r.top + 18 * u, 3 * u);
+        drawTitle(c, "ITEMS", r, 20 * u);
 
         int cellW = (int) Math.min((r.width() - 70 * u) / 5, (r.height() - 100 * u) / 4);
         gridCellW = cellW;
@@ -1804,7 +1868,7 @@ public class MinimapView extends View {
 
     private void drawGearPanel(Canvas c, RectF r) {
         menuBox(c, r, COL_BOX_BORDER2);
-        drawText(c, "GEAR", r.centerX() - textWidth("GEAR", 3 * u) / 2, r.top + 18 * u, 3 * u);
+        drawTitle(c, "GEAR", r, 20 * u);
 
         float H = r.height();
         float x0 = r.left + 56 * u;
@@ -1837,7 +1901,7 @@ public class MinimapView extends View {
         }
         float px = x0 + 4.3f * step;
         float rightW = r.right - 20 * u - px;
-        drawText(c, "PENDANTS", px, y1 - 40 * u, 2.4f * u);
+        fittedText(c, uiText.get("PENDANTS"), px, y1 - 40 * u - 8*u, r.right - 20*u, y1 - 40 * u + 28*u, 2.4f*u, 1, 0);
         int pend = sram(0x74);
         int[] pbit = {4, 2, 1};
         int[] pcol = {Color.rgb(64, 200, 88), Color.rgb(70, 110, 240), Color.rgb(230, 60, 60)};
@@ -1851,7 +1915,7 @@ public class MinimapView extends View {
         }
         // crystals under pendants (spacing capped to the column width)
         float cyC = y1 + 0.14f * H;
-        drawText(c, "CRYSTALS", px, cyC, 2.4f * u);
+        fittedText(c, uiText.get("CRYSTALS"), px, cyC - 8*u, r.right - 20*u, cyC + 28*u, 2.4f*u, 1, 0);
         float cs = Math.min(40 * u, rightW / 7f);
         int nOwned = Integer.bitCount(sram(0x7A) & 0x7F);
         for (int i = 0; i < 7; i++) {

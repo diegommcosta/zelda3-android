@@ -20,6 +20,25 @@ This branch also builds the second screen for desktop/handheld Linux (SDL2), so 
 2. Launch the app and tap "Select ROM" when asked, then pick your "Legend of Zelda, The - A Link to the Past (USA)" rom file.
 3. That's it. The app extracts the game assets once and boots straight into the game. Every launch after that goes directly to the game.
 
+**Brazilian Portuguese:** select the already translated `.sfc` or `.smc` ROM
+from the spyblack/Denim translation (SHA-1
+`D0D09ED41F9C373FE6AFDCCAFBF0DA8C88D3D90D`, 2 MiB without copier header).
+The app recognizes it automatically, builds the game data and selects `pt-br`.
+The Android second screen and its settings also use Brazilian Portuguese when
+`Language = pt-br` is saved, including existing installations. Restart the app
+after updating to see the translated interface, with accented pixel lettering.
+Only this translated ROM is needed; the IPS patch and original US ROM are not
+required on the device. Unzip the ROM before selecting it. This imports dialogue
+and its font; translated title/menu graphics inside the game are not included.
+
+**Other fan translations:** select the translated ROM first, then the original
+US ROM when prompted. Spanish, Polish, Dutch, Swedish and Redux are recognized
+by checksum; other hacks retaining the US text layout can also be imported.
+
+Setup runs only when `zelda3_assets.dat` is absent. To switch an existing install
+to PT-BR, back up and remove that file from the app's files directory, then launch
+the app and select the supported translated ROM. Keep your save files.
+
 The rom is only read to build the assets (zelda3_assets.dat) — it is never copied or kept, and the app ships no game assets of its own.
 
 The game itself is controller only, but the bottom screen has full touch controls (map, inventory, equipping items).
@@ -57,6 +76,10 @@ The native code lives in `app/jni/src` and builds two ways; pick the one for you
 - `src/platform/linux/` — the SDL UI (`second_screen_sdl.c`) + its generated tables
 
 **Android:** open the project in Android Studio and build/run, or `./gradlew assembleDebug`. The NDK build (`jni/Android.mk`) compiles `src/*.c` + `src/platform/android/*.c`.
+
+The PT-BR BPS is committed, so normal builds need no ROMs or generation step.
+See [translation tooling](tools/translations/README.md) to reproduce the patch
+or run local import checks with your own ROMs.
 
 **Linux (desktop / handheld):**
 ```
