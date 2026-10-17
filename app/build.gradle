@@ -15,8 +15,8 @@ android {
         }
         minSdkVersion 16
         targetSdkVersion 31
-        versionCode 5
-        versionName "2.0"
+        versionCode 6
+        versionName "2.1.0"
         externalNativeBuild {
             ndkBuild {
                 arguments "APP_PLATFORM=android-16"
@@ -57,6 +57,11 @@ android {
         }
     }
     applicationVariants.all { variant ->
+        if (variant.buildType.name == 'release') {
+            variant.outputs.all {
+                outputFileName = "zelda3-android-${variant.versionName}.apk"
+            }
+        }
         tasks["merge${variant.name.capitalize()}Assets"]
             .dependsOn("externalNativeBuild${variant.name.capitalize()}")
     }
