@@ -69,11 +69,34 @@ header. Verify accented dialogue, player-name insertion, numeric substitutions,
 choices and scrolling in game. Verify that selecting a US ROM still starts in
 English on a clean install and other translations still request the US ROM.
 
-The import tests do not replace these device checks. The ROM import includes
-dialogue/font only; it does not apply the ROM hack's executable code or title/menu
-graphics. Separately, the Android second screen uses a built-in PT-BR catalog
+The import tests do not replace these device checks. PT-BR imports now include
+a separately versioned UI package inside the PT-BR language entry of the assets
+container. It stores only the recognized ROM's graphics, font and text tables;
+the app does not execute the hack's code. The engine adapts name rendering,
+game-over animation and the ending row format. The original asset entries remain
+intact, and absent or invalid UI packages fall back to the original interface.
+Existing imports require reimporting the ROM to obtain these extra resources.
+Separately, the Android second screen uses a built-in PT-BR catalog
 whenever `Language = pt-br` is saved. Updating an existing PT-BR installation
 and restarting the app is enough to activate this UI translation.
+
+## In-game interface mapping and verification
+
+See [the mapping and device checklist](../../docs/ptbr-ui-mapping.md).
+`ptbr_ui_manifest.json` records offsets, lengths and hashes, never extracted
+graphics. Reproduce it with `map_ui.py --us-rom <us> --translated-rom <ptbr>`,
+then run `generate_ui_sources.py` to update the Java/C metadata. No upstream
+checkout is needed to run either tool.
+
+`verify_ptbr.py` verifies all 42 resources using the production Java importer
+and writes an ignored `build/ui-package.bin` for the native tests. Run it before
+`python -m unittest discover -s tools/tests -p "test_*.py" -v` to include the
+native package, graphics, state refresh, game-over and credits checks. These
+tests need the Windows NDK configured in `local.properties` as before.
+
+For resource previews, run `preview_ui.py --us-rom <us> --translated-rom <ptbr>`
+with Pillow installed. Generated PNGs stay under ignored `build/`; they are
+grayscale resource previews, not device screenshots or a replacement for them.
 
 The test suite also compiles `SecondScreenTextTest` when a JDK is on PATH. It
 checks language selection, English fallback, catalog/font coverage and text

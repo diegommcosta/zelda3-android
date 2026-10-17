@@ -28,8 +28,10 @@ The Android second screen and its settings also use Brazilian Portuguese when
 `Language = pt-br` is saved, including existing installations. Restart the app
 after updating to see the translated interface, with accented pixel lettering.
 Only this translated ROM is needed; the IPS patch and original US ROM are not
-required on the device. Unzip the ROM before selecting it. This imports dialogue
-and its font; translated title/menu graphics inside the game are not included.
+required on the device. Unzip the ROM before selecting it. New imports also
+include the ROM's translated in-game interface: file menus, inventory, HUD,
+game-over lettering, graphics and ending text. It follows the translation's
+original wording; elements left unchanged by the ROM remain unchanged.
 
 **Other fan translations:** select the translated ROM first, then the original
 US ROM when prompted. Spanish, Polish, Dutch, Swedish and Redux are recognized
@@ -37,7 +39,10 @@ by checksum; other hacks retaining the US text layout can also be imported.
 
 Setup runs only when `zelda3_assets.dat` is absent. To switch an existing install
 to PT-BR, back up and remove that file from the app's files directory, then launch
-the app and select the supported translated ROM. Keep your save files.
+the app and select the supported translated ROM. Keep your save files and
+`zelda3.ini`. Existing PT-BR imports also need this one-time reimport to extract
+the new in-game interface. Updating the APK alone updates the Android second
+screen, but cannot extract graphics from a ROM the app no longer has.
 
 The rom is only read to build the assets (zelda3_assets.dat) — it is never copied or kept, and the app ships no game assets of its own.
 
