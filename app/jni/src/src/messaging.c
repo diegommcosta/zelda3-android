@@ -550,6 +550,8 @@ void GameOverText_SweepLeft() {  // 88f4f6
   int last = UiTranslation_Active() ? 8 : 7;
 
   int k = flag_for_boomerang_in_place;
+  if (k > last) flag_for_boomerang_in_place = k = last;
+  if (hookshot_effect_index > last - 1) hookshot_effect_index = last - 1;
   cur_object_index = k;
   ancilla_x_vel[k] = 0x80;
   Ancilla_MoveX(k);
@@ -581,6 +583,16 @@ void GameOverText_UnfurlRight() {  // 88f56d
   int last = UiTranslation_Active() ? 8 : 7;
 
   int k = flag_for_boomerang_in_place, end;
+  // Old snapshots may have the other layout's leading letter. Grow/shrink
+  // the animation before using its count as the backwards-copy loop bound.
+  if (k != last) {
+    if (k < 10) {
+      ancilla_x_lo[last] = ancilla_x_lo[k];
+      ancilla_x_hi[last] = ancilla_x_hi[k];
+    }
+    flag_for_boomerang_in_place = k = last;
+  }
+  if (hookshot_effect_index > last) hookshot_effect_index = last;
   cur_object_index = k;
   ancilla_x_vel[k] = 0x60;
   Ancilla_MoveX(k);

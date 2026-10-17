@@ -59,12 +59,20 @@ int tests(void) {
  for(int i=0;i<2048;i++) new_tiles[i]=(uint8)(old_tiles[i]+1);
  // A customized controller glyph survives a restored old inventory state.
  loaded_tiles[0]^=7;
+ CHECK(UiTranslation_OriginalTiles(loaded_tiles,old_tiles,new_tiles,2048));
+ CHECK(!UiTranslation_OriginalTiles(new_tiles,old_tiles,new_tiles,2048));
  CHECK(UiTranslation_RestoreTiles(loaded_tiles,old_tiles,new_tiles,2048));
- CHECK(loaded_tiles[0]!=(uint8)old_tiles[0] && loaded_tiles[16]==new_tiles[16]);
+ CHECK(loaded_tiles[0]==7 && loaded_tiles[16]==new_tiles[16]);
  // A different graphics bank must not be interpreted as an old UI bank.
  for(int i=0;i<2048;i++) loaded_tiles[i]=77;
  CHECK(!UiTranslation_RestoreTiles(loaded_tiles,old_tiles,new_tiles,2048));
  CHECK(loaded_tiles[16]==77);
+ CHECK(!UiTranslation_OriginalTiles(loaded_tiles,old_tiles,new_tiles,2048));
+ UiTranslation_Defer();
+ CHECK(!UiTranslation_Active() && UiTranslation_Get(1,original)==original);
+ CHECK(UiTranslation_NameTile(0x42,false)==0x42);
+ CHECK(UiTranslation_Resume() && UiTranslation_Active());
+ CHECK(!UiTranslation_Resume());
  const uint8 *map=UiTranslation_Get(kUi_NameFontMap,NULL);
  const uint16 names[][2]={{0,0},{0x28,0x18},{0x42,0x22},{0xa9,0x59},{0xe6,0x34}};
  for (int i=0;i<5;i++) {
@@ -83,6 +91,7 @@ int tests(void) {
  CHECK(!UiTranslation_Active());
  CHECK(UiTranslation_NameTile(0x42,false)==0x42);
  CHECK(UiTranslation_NameTile(0x42,true)==0x52);
+ CHECK(!UiTranslation_Resume());
  return 0;
 }
 '''

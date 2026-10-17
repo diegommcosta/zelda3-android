@@ -2,6 +2,7 @@
 #include <string.h>
 
 static const uint8 *ui_package;
+static bool ui_deferred;
 // Packed language entries need not be aligned. Copy once at selection so all
 // uint16 resources are safe on ARM as well as desktop architectures.
 static uint32 ui_storage[(UI_PACKAGE_SIZE + 3) / 4];
@@ -25,6 +26,7 @@ bool UiTranslation_Select(const char *language, MemBlk package) {
     0xdc,0xca,0xfb,0xf0,0xda,0x8c,0x88,0xd3,0xd9,0x0d,
   };
   ui_package = NULL;
+  ui_deferred = false;
   if (!language || strcmp(language, "pt-br") || !package.ptr || package.size != UI_PACKAGE_SIZE)
     return false;
   const uint8 *p = package.ptr;
@@ -47,10 +49,18 @@ bool UiTranslation_Select(const char *language, MemBlk package) {
   return true;
 }
 
-bool UiTranslation_Active(void) { return ui_package != NULL; }
+bool UiTranslation_Active(void) { return ui_package != NULL && !ui_deferred; }
+
+void UiTranslation_Defer(void) { ui_deferred = true; }
+
+bool UiTranslation_Resume(void) {
+  bool changed = ui_package && ui_deferred;
+  ui_deferred = false;
+  return changed;
+}
 
 MemBlk UiTranslation_Block(uint32 id, MemBlk original) {
-  if (ui_package) {
+  if (UiTranslation_Active()) {
     int lo = 0, hi = countof(kUiResourceLayout);
     while (lo < hi) {
       int mid = (lo + hi) >> 1;
@@ -67,7 +77,7 @@ const void *UiTranslation_Get(uint32 id, const void *original) {
 }
 
 uint16 UiTranslation_NameTile(uint16 character, bool bottom) {
-  if (!ui_package) return character + (bottom ? 16 : 0);
+  if (!UiTranslation_Active()) return character + (bottom ? 16 : 0);
   uint8 c = (character & 15) | ((character >> 1) & 0xf0);
   if (c >= 0x76) c -= 0x42;
   else if (c == 0x5f) c = 8;
@@ -80,7 +90,7 @@ uint16 UiTranslation_NameTile(uint16 character, bool bottom) {
 
 bool UiTranslation_RestoreTiles(uint8 *loaded, const uint8 *original,
                                const uint8 *translated, size_t size) {
-  if (!ui_package || !size || (size & 15)) return false;
+  if (!UiTranslation_Active() || !size || (size & 15)) return false;
   size_t mismatches = 0;
   for (size_t i = 0; i < size; i += 16)
     if (memcmp(loaded + i, original + i, 16) && ++mismatches > 8) return false;
@@ -92,4 +102,16 @@ bool UiTranslation_RestoreTiles(uint8 *loaded, const uint8 *original,
     }
   }
   return changed;
+}
+
+bool UiTranslation_OriginalTiles(const uint8 *loaded, const uint8 *original,
+                                 const uint8 *translated, size_t size) {
+  size_t us = 0, pt = 0;
+  if (!size || (size & 15)) return false;
+  for (size_t i = 0; i < size; i += 16) {
+    if (!memcmp(original + i, translated + i, 16)) continue;
+    if (!memcmp(loaded + i, original + i, 16)) us++;
+    if (!memcmp(loaded + i, translated + i, 16)) pt++;
+  }
+  return us > pt;
 }

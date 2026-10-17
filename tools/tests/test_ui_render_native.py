@@ -150,6 +150,23 @@ int tests(void) {
  while(ancilla_type[0]==2 && steps++<1024) GameOverText_UnfurlRight();
  CHECK(steps<1024 && flag_for_boomerang_in_place==7 && ancilla_type[0]==3);
  GameOverText_Draw(); CHECK(oam_count==16);
+ // A pre-update snapshot can resume the eight-letter animation after the
+ // importer has activated PT-BR. In particular, the last unfurl step must
+ // not walk backwards beyond the ancilla arrays when the count grows.
+ Death_InitializeGameOverLetters();steps=0;
+ while(ancilla_type[0]==1 && steps++<512) GameOverText_SweepLeft();
+ while(hookshot_effect_index<7 && steps++<1024) GameOverText_UnfurlRight();
+ CHECK(steps<1024 && ancilla_type[0]==2);
+ CHECK(UiTranslation_Select("pt-br",(MemBlk){package,sizeof(package)}));
+ while(ancilla_type[0]==2 && steps++<2048) GameOverText_UnfurlRight();
+ CHECK(steps<2048 && ancilla_type[0]==3 && flag_for_boomerang_in_place==8);
+ GameOverText_Draw(); CHECK(oam_count==18);
+ // Loading the larger animation in the original language is bounded too.
+ UiTranslation_Select("us",(MemBlk){NULL,0});
+ ancilla_type[0]=2;hookshot_effect_index=0;steps=0;
+ while(ancilla_type[0]==2 && steps++<512) GameOverText_UnfurlRight();
+ CHECK(steps<512 && ancilla_type[0]==3 && flag_for_boomerang_in_place==7);
+ GameOverText_Draw();CHECK(oam_count==16);
  return 0;
 }
 '''.replace('GRAPHICS_TEST',graphics_test)

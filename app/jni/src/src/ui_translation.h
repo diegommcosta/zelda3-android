@@ -12,3 +12,7 @@ uint16 UiTranslation_NameTile(uint16 character, bool bottom);
 bool UiTranslation_RestoreTiles(uint8 *loaded, const uint8 *original,
                                const uint8 *translated, size_t size);
 void UiTranslation_RestoreAfterLoad(void);
+bool UiTranslation_OriginalTiles(const uint8 *loaded, const uint8 *original,
+                                 const uint8 *translated, size_t size);
+void UiTranslation_Defer(void);
+bool UiTranslation_Resume(void);

@@ -852,6 +852,7 @@ const uint8 *GetSpriteTilesetPacks(int idx) {
 }
 
 void LoadDefaultGraphics() {  // 80e2d0
+  UiTranslation_Resume();
   const uint8 *src = GetCompSpritePtr(0);
 
   uint16 *vram_ptr = &g_zenv.vram[0x4000];
@@ -868,6 +869,12 @@ void LoadDefaultGraphics() {  // 80e2d0
   } while (--num);
 
   // Load 2bpp graphics used for hud
+  DecompAndUpload2bpp(&g_zenv.vram[0x7000], 0x6a);
+  DecompAndUpload2bpp(&g_zenv.vram[0x7400], 0x6b);
+  DecompAndUpload2bpp(&g_zenv.vram[0x7800], 0x69);
+}
+
+void UiTranslation_LoadHudGraphics(void) {
   DecompAndUpload2bpp(&g_zenv.vram[0x7000], 0x6a);
   DecompAndUpload2bpp(&g_zenv.vram[0x7400], 0x6b);
   DecompAndUpload2bpp(&g_zenv.vram[0x7800], 0x69);

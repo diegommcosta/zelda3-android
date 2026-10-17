@@ -502,6 +502,7 @@ bool Hud_HaveAnyItems() { // new
 }
 
 void Hud_Init() {  // 8dddab
+  if (UiTranslation_Resume()) UiTranslation_LoadHudGraphics();
   Hud_SearchForEquippedItem();
   Hud_DrawYButtonItems();
   Hud_DrawAbilityBox();

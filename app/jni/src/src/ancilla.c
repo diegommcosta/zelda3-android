@@ -5532,6 +5532,8 @@ void GameOverText_Draw() {  // 88f5c4
   oam_ext_cur_ptr = 0xa20;
   OamEnt *oam = GetOamCurPtr();
   int k = flag_for_boomerang_in_place;
+  int last = translated ? 8 : 7;
+  if (k > last) k = last;
   do {
     uint16 top = translated ? translated[k * 2] : 0x3c00 | kGameOverText_Chars[k * 2];
     uint16 bottom = translated ? translated[k * 2 + 1] : 0x3c00 | kGameOverText_Chars[k * 2 + 1];

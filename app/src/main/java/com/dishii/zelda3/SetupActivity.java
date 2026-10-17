@@ -356,13 +356,8 @@ public class SetupActivity extends Activity {
         } finally {
             fos.close();
         }
-        try {
-            // Both files are in the same directory. POSIX rename replaces the
-            // previous complete container atomically; never delete it first.
-            android.system.Os.rename(tmp.getAbsolutePath(), out.getAbsolutePath());
-        } catch (android.system.ErrnoException e) {
-            throw new IOException("couldn't save the assets file", e);
-        }
+        // Same directory: publish the whole container in one atomic rename.
+        AssetFileWriter.replace(tmp, out);
         Log.i(TAG, "Wrote " + out + " (" + dat.length + " bytes)");
 
         if (pendingTranslation != null) {
