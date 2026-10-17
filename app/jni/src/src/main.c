@@ -28,6 +28,7 @@
 #include "util.h"
 #include "audio.h"
 #include "android_logging.h"
+#include "android_autosave.h"
 
 static bool g_run_without_emu = 0;
 
@@ -427,6 +428,9 @@ int main(int argc, char** argv) {
   }
 
   ParseConfigFile(config_file);
+#ifdef __ANDROID__
+  AndroidAutosave_Init(g_config.autosave);
+#endif
   LoadAssets();
   LoadLinkGraphics();
 
@@ -539,8 +543,12 @@ int main(int argc, char** argv) {
   uint32 frameCtr = 0;
   bool audiopaused = true;
 
+#ifdef __ANDROID__
+  AndroidAutosave_Handle(kAutosaveStart);
+#else
   if (g_config.autosave)
     HandleCommand(kKeys_Load + 0, true);
+#endif
 
   while(running) {
     while(SDL_PollEvent(&event)) {
@@ -578,6 +586,14 @@ int main(int argc, char** argv) {
       case SDL_KEYUP:
         HandleInput(event.key.keysym.sym, event.key.keysym.mod, false);
         break;
+#ifdef __ANDROID__
+      case SDL_APP_WILLENTERBACKGROUND:
+        AndroidAutosave_Handle(kAutosaveBackground);
+        break;
+      case SDL_APP_DIDENTERFOREGROUND:
+        AndroidAutosave_Handle(kAutosaveForeground);
+        break;
+#endif
       case SDL_QUIT:
         running = false;
         break;
@@ -649,8 +665,12 @@ int main(int argc, char** argv) {
       }
     }
   }
+#ifdef __ANDROID__
+  AndroidAutosave_Handle(kAutosaveExit);
+#else
   if (g_config.autosave)
     HandleCommand(kKeys_Save + 0, true);
+#endif
 
   // clean sdl
   if (g_config.enable_audio) {

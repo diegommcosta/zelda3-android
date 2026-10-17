@@ -12,6 +12,7 @@
 #include "load_gfx.h"
 #include "messaging.h"
 #include "config.h"
+#include "android_autosave.h"
 #include "zelda_rtl.h"
 #include "snes/ppu.h"
 #include "second_screen_tables.h"
@@ -502,7 +503,13 @@ void SS_SaveLoadState(bool save) {
   if (save) SS_RequestSaveState(1); else SS_RequestLoadState(1);
 }
 
-void SS_SetAutosave(bool on) { g_config.autosave = on; }
+void SS_SetAutosave(bool on) {
+#ifdef __ANDROID__
+  AndroidAutosave_SetEnabled(on);
+#else
+  g_config.autosave = on;
+#endif
+}
 
 // ---- save states ----
 // The picker drives SaveLoadSlot, which touches audio state, so the request is

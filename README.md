@@ -119,3 +119,22 @@ Native mapping and save-failure tests run on Windows with the configured Android
 NDK (or `ANDROID_NDK_HOME`); they compile production functions with fake I/O and
 require no ROM. Device verification should cover R2/L2, reassignment to R3/L3,
 clearing a binding, transfer/cancel, and saving/loading from all three entry points.
+
+### Automatic resume (Android)
+
+With **AUTOSAVE** enabled, the game saves `saves/save0.sav` when it enters the
+background (Home, Recents or screen lock), before SDL suspends the game thread.
+A normal engine exit also saves. Opening a new session loads that file; returning
+to a session still in memory does not reload it. Disabling the option disables
+both automatic saving and loading, without deleting the previous file.
+
+Autosaves are written to a temporary file and replace the previous state only
+after a successful write and close. Missing/empty or invalid automatic states do
+not prevent startup. Logs prefixed `Autosave:` report load/save results. Quick
+and manual state files remain independent. There is no periodic saving, and a
+crash, abrupt termination or power loss can still prevent the latest save.
+
+On-device acceptance: enable autosave, play to a recognizable point, open
+Recents, swipe the app away, and relaunch. Verify `save0.sav` was updated and the
+same point resumes. Repeat using Home, screen lock, and swapped screens; also
+verify that simply returning from the background continues the live session.

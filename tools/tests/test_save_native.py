@@ -97,7 +97,7 @@ int tests(void) {
   write_ok=0; CHECK(SaveLoadSlotChecked(0,1)==4 && saved==1); write_ok=1;
   close_ok=0; CHECK(SaveLoadSlotChecked(0,1)==4 && saved==1); close_ok=1;
   rename_ok=0; CHECK(SaveLoadSlotChecked(0,1)==4 && saved==1); rename_ok=1;
-  CHECK(SaveLoadSlotChecked(0,0)==4 && SaveLoadSlotChecked(0,6)==4);
+  CHECK(SaveLoadSlotChecked(0,-1)==4 && SaveLoadSlotChecked(0,6)==4);
   QueueState(1,true); QueueState(3,false);
   CHECK(g_state_count==2 && g_state_queue[0]==2 && g_state_queue[1]==7);
   g_state_count=0;
@@ -114,6 +114,20 @@ int tests(void) {
   CHECK(SS_CommitThumbnail(3,8,filedata,8) && png_writes==1);
   write_ok=0;
   CHECK(!SS_CommitThumbnail(3,8,filedata,8));
+  write_ok=1;
+  CHECK(SaveLoadSlotChecked(0,0)==1);
+  int before_saved=saved, before_loaded=loaded;
+  CHECK(SaveLoadSlotChecked(1,0)==2 && loaded==before_loaded+1);
+  exists=0; CHECK(SaveLoadSlotChecked(1,0)==3); exists=1;
+  filesize=0; CHECK(SaveLoadSlotChecked(1,0)==3); filesize=36;
+  hdr[0]=2; CHECK(SaveLoadSlotChecked(1,0)==4); hdr[0]=1;
+  write_ok=0; CHECK(SaveLoadSlotChecked(0,0)==4 && saved==before_saved); write_ok=1;
+  close_ok=0; CHECK(SaveLoadSlotChecked(0,0)==4 && saved==before_saved); close_ok=1;
+  rename_ok=0; CHECK(SaveLoadSlotChecked(0,0)==4 && saved==before_saved); rename_ok=1;
+  CHECK(loaded==before_loaded+1);
+  g_state_count=0; QueueState(0,true);
+  CHECK(g_state_count==0); // manual UI still cannot address autosave
+
   return 0;
 }
 '''

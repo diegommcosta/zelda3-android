@@ -906,7 +906,7 @@ bool GetStatePath(int slot, const char *suffix, char *out, size_t size) {
 // 1 saved, 2 loaded, 3 empty, 4 error. Caller holds the audio lock.
 int SaveLoadSlotChecked(int cmd, int slot) {
   char path[1024], temp[1024];
-  if (slot < 1 || slot > 5 || !GetStatePath(slot, "sav", path, sizeof(path))) return 4;
+  if (slot < 0 || slot > 5 || !GetStatePath(slot, "sav", path, sizeof(path))) return 4;
   if (cmd == kSaveLoad_Save) {
     if (!GetStatePath(slot, "sav.tmp", temp, sizeof(temp))) return 4;
     SDL_RWops *f = SDL_RWFromFile(temp, "wb");
