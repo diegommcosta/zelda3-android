@@ -139,7 +139,9 @@ static void SS_EnsureTiles(void) {
   static const uint8 kSheets[3] = {0x6a, 0x6b, 0x69};  // same order as tile ids 0x000-0x17F
   uint8 raw[0x1000];
   for (int s = 0; s < 3; s++) {
-    Decompress(raw, kSprGfx(kSheets[s]).ptr);  // HUD sheets are sprite-gfx packs (see Decomp_spr)
+    // Second-screen tables use US tile positions, including its A-Z alphabet.
+    // Translated HUD banks reorder those tiles; keep this cached atlas original.
+    Decompress(raw, FindInAssetArray(64, kSheets[s]).ptr);
     for (int t = 0; t < 128; t++) {
       const uint8 *tp = raw + t * 16;
       uint8 *out = g_ss_tiles + (s * 128 + t) * 64;

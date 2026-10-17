@@ -89,10 +89,17 @@ then run `generate_ui_sources.py` to update the Java/C metadata. No upstream
 checkout is needed to run either tool.
 
 `verify_ptbr.py` verifies all 42 resources using the production Java importer
-and writes an ignored `build/ui-package.bin` for the native tests. Run it before
+and writes ignored `build/ui-package.bin` and `build/ui-second-screen-base.bin`
+fixtures for the native tests. Run it before
 `python -m unittest discover -s tools/tests -p "test_*.py" -v` to include the
 native package, graphics, state refresh, game-over and credits checks. These
 tests need the Windows NDK configured in `local.properties` as before.
+
+The second-screen atlas regression renders the production letter, counter and
+icon sheets from real US graphics, then compares every pixel with PT-BR active,
+both with a warm cache and a fresh atlas. The second screen deliberately reads
+the original banks because its fixed tile positions differ from the PT-BR HUD.
+The game's HUD continues to use the translated resources.
 
 For resource previews, run `preview_ui.py --us-rom <us> --translated-rom <ptbr>`
 with Pillow installed. Generated PNGs stay under ignored `build/`; they are
