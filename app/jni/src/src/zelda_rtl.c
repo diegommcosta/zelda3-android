@@ -410,6 +410,7 @@ static void LoadSnesState(SaveLoadFunc *func, void *ctx) {
   // Do the actual loading
   ZeldaApuLock();
   InternalSaveLoad(func, ctx);
+  UiTranslation_RestoreAfterLoad();
   memcpy(g_zenv.ram + 0x1DBA0, g_zenv.ram + 0x1b00, 224 * 2); // hdma table was moved
 
   ZeldaRestoreMusicAfterLoad_Locked(false);
@@ -422,6 +423,7 @@ static void SaveSnesState(SaveLoadFunc *func, void *ctx) {
   ZeldaApuLock();
   ZeldaSaveMusicStateToRam_Locked();
   InternalSaveLoad(func, ctx);
+  UiTranslation_RestoreAfterLoad();
   ZeldaApuUnlock();
 }
 
@@ -805,6 +807,7 @@ bool ZeldaRunFrame(int inputs) {
 void ZeldaSetLanguage(const char *language) {
   static const uint8 kDefaultConf[3] = { 0, 0, 0 };
   MemBlk found = { kDefaultConf, 3 };
+  MemBlk interface_package = { NULL, 0 };
   if (language) {
     size_t n = strlen(language);
     for (int i = 0; ; i++) {
@@ -816,6 +819,7 @@ void ZeldaSetLanguage(const char *language) {
       MemBlk name = FindIndexInMemblk(mb, 0);
       if (name.size == n && !memcmp(name.ptr, language, n)) {
         found = FindIndexInMemblk(mb, 1);
+        interface_package = FindIndexInMemblk(mb, 2);
         break;
       }
     }
@@ -823,6 +827,9 @@ void ZeldaSetLanguage(const char *language) {
   g_zenv.dialogue_blk = kDialogue(found.ptr[0]);
   g_zenv.dialogue_font_blk = kDialogueFont(found.ptr[1]);
   g_zenv.dialogue_flags = found.ptr[2];
+  bool ui_active = UiTranslation_Select(language, interface_package);
+  if (language && !strcmp(language, "pt-br"))
+    fprintf(stderr, "PT-BR interface: %s\n", ui_active ? "loaded" : "original (package absent or invalid)");
 }
 
 

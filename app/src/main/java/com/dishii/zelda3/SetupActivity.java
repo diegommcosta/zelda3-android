@@ -356,13 +356,12 @@ public class SetupActivity extends Activity {
         } finally {
             fos.close();
         }
-        if (!tmp.renameTo(out)) {
-            // renameTo can fail if the target exists on some filesystems.
-            out.delete();
-            if (!tmp.renameTo(out)) {
-                tmp.delete();
-                throw new IOException("couldn't save the assets file");
-            }
+        try {
+            // Both files are in the same directory. POSIX rename replaces the
+            // previous complete container atomically; never delete it first.
+            android.system.Os.rename(tmp.getAbsolutePath(), out.getAbsolutePath());
+        } catch (android.system.ErrnoException e) {
+            throw new IOException("couldn't save the assets file", e);
         }
         Log.i(TAG, "Wrote " + out + " (" + dat.length + " bytes)");
 

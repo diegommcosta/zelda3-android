@@ -35,17 +35,23 @@ final class TranslationExtractor {
         final byte[] dialogueBlk;  // packed [dictionary, messages] (kDialogue entry)
         final byte[] fontBlk;      // packed [font gfx, width table] (kDialogueFont entry)
         final int flags;
+        final byte[] uiBlk;        // optional, versioned interface resources
 
         Language(String code, String displayName, byte[] dialogueBlk, byte[] fontBlk) {
             this(code, displayName, dialogueBlk, fontBlk, 2);
         }
 
         Language(String code, String displayName, byte[] dialogueBlk, byte[] fontBlk, int flags) {
+            this(code, displayName, dialogueBlk, fontBlk, flags, null);
+        }
+
+        Language(String code, String displayName, byte[] dialogueBlk, byte[] fontBlk, int flags, byte[] uiBlk) {
             this.code = code;
             this.displayName = displayName;
             this.dialogueBlk = dialogueBlk;
             this.fontBlk = fontBlk;
             this.flags = flags;
+            this.uiBlk = uiBlk;
         }
     }
 
@@ -229,7 +235,8 @@ final class TranslationExtractor {
                 throw new RomException("Invalid Portuguese font width.");
         }
         return new Language("pt-br", "the Portuguese (Brazil) translation",
-                pack(twoBlocks(pack(dictionary), pack(messages))), pack(twoBlocks(font, widths)), 3);
+                pack(twoBlocks(pack(dictionary), pack(messages))), pack(twoBlocks(font, widths)), 3,
+                UiTranslationPackage.extract(rom));
     }
 
     private static void appendPtCommand(List<Byte> out, int c, int param) throws RomException {
@@ -373,7 +380,9 @@ final class TranslationExtractor {
         } catch (java.io.UnsupportedEncodingException e) {
             nameBytes = lang.code.getBytes();
         }
-        map.add(pack(twoBlocks(nameBytes, conf)));
+        List<byte[]> languageEntry = twoBlocks(nameBytes, conf);
+        if (lang.uiBlk != null) languageEntry.add(lang.uiBlk);
+        map.add(pack(languageEntry));
         assets[94] = pack(dialogues);
         assets[95] = pack(fonts);
         assets[96] = pack(map);

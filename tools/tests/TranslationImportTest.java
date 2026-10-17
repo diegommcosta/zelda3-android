@@ -61,6 +61,8 @@ public final class TranslationImportTest {
         byte[] ptEntry = entry(installedMap, count(installedMap) - 1);
         check(Arrays.equals(entry(ptEntry, 0), "pt-br".getBytes("UTF-8")), "installed language name");
         byte[] conf = entry(ptEntry, 1);
+        check(count(ptEntry) == 3, "PT-BR entry includes a separate UI package");
+        check(Arrays.equals(entry(ptEntry, 2), lang.uiBlk), "atomic assets container includes UI package");
         check(conf[2] == 3, "Portuguese needs new command encoding and translated-text flags");
         check(Arrays.equals(entry(asset(singleRom, 94), conf[0] & 255), lang.dialogueBlk), "installed dialogue");
         check(Arrays.equals(entry(asset(singleRom, 95), conf[1] & 255), lang.fontBlk), "installed font");

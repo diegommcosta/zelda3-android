@@ -392,8 +392,8 @@
       "index": 0,
       "name": "CreditsText",
       "offset": 471096,
-      "size": 2041,
-      "sha256": "f6146a2de28f7123687c50fcb2418aff83db6e59b3806ae52c70ff52cc53025e",
+      "size": 2028,
+      "sha256": "f9bb78c4c06188de33dcedd30fa6baa567c6f3b6f5b8f75deb00ed327ec84be8",
       "original_sha256": "cb4fa2f1c8269cf1e84c908e3ff9bee8f879b805e96f7f13aa16cb744f05da90"
     },
     {
@@ -425,6 +425,46 @@
       "size": 34,
       "sha256": "015286f144c4dc316fc0da6439c9adb56f89670d9cef5c89250708db7bc4353b",
       "original_sha256": "6c4f6cca913188c96581a1d215c2408db9c04576c1281c8cd6a6f78fed6b29ec"
+    },
+    {
+      "id": 1029,
+      "kind": "font",
+      "index": 1,
+      "name": "NameFontMap",
+      "offset": 490505,
+      "size": 363,
+      "sha256": "16e9fac6865eb3c01fa52cb9a1020174053da0596823bc9c2d0b5293ff22c655",
+      "original_sha256": "71ef5f27962b41f8ae11bce775a43159fa0614eb1c01e17b4a2cdf9aea44b595"
+    },
+    {
+      "id": 1030,
+      "kind": "gameover",
+      "index": 0,
+      "name": "GameOverCharacters",
+      "offset": 1048641,
+      "size": 36,
+      "sha256": "9e0a617606768db02f52b8dec784e003e6c89be374d5e9fa683e9903936563d3",
+      "original_sha256": "8c41500901736b592f8355c127c099500376169ef34bc6308e3d4e7561d9724f"
+    },
+    {
+      "id": 1031,
+      "kind": "gameover",
+      "index": 1,
+      "name": "GameOverSweep",
+      "offset": 292276,
+      "size": 9,
+      "sha256": "2a8f739fc266f291951fe6d614a5e1ba0734081d8e605f31a7941202f4280c14",
+      "original_sha256": "07e960ac8ff7b304fdc3b19fe6ca15502023248dc315bb0502bbe21859b58760"
+    },
+    {
+      "id": 1032,
+      "kind": "gameover",
+      "index": 2,
+      "name": "GameOverUnfurl",
+      "offset": 1048677,
+      "size": 9,
+      "sha256": "a4a320c7714b97bdf533e6d6184f267b523c5a623878050ddf321a5f0d8896d9",
+      "original_sha256": "bf9bd7dcd6e4dec395fc1711481443d4ec34b44000af2dd2158c0679c53063cd"
     }
   ],
   "audit": [
@@ -1388,5 +1428,7 @@
       "size": 661,
       "changed": false
     }
-  ]
+  ],
+  "package_size": 33097,
+  "package_crc32": 3651228230
 }

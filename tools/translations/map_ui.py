@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 import re
 import struct
+import zlib
 
 from build_ptbr_patch import ROOT, US_SHA1, PT_SHA1, read_rom
 
@@ -85,6 +86,8 @@ def arrays():
         pattern = r'(?:static )?const (u?int(?:8|16)) (\w+)\[[^;=]*=\s*\{(.*?)\};'
         for m in re.finditer(pattern, text, re.S):
             typ, name, body = m.groups()
+            if name.endswith('_US'):
+                name = name[:-3]
             body = re.sub(r'//[^\n]*', '', body).replace('{', '').replace('}', '')
             try:
                 ns = [int(x.strip(), 0) for x in body.split(',') if x.strip()]
@@ -152,18 +155,43 @@ def map_roms(us, pt):
                           changed=us[off:off+a] != pt[off:off+b]))
         if us[off:off+a] != pt[off:off+b]:
             add(0x300+99+i, 'asset', 99+i, f'kBgTilemap_{i}', off, b, us[off:off+a])
-    # PT credits no longer use US byte indices into kEnding_MapData. The hack
-    # stores big-endian tile words, and relocates scene captions to $A0:80C8.
+    # PT credits no longer use US byte indices into kEnding_MapData. Each row
+    # stores one shared palette/attribute byte followed by its tile bytes.
+    # Scene captions are relocated to $A0:80C8 and use the same row encoding.
     offsets = struct.unpack_from('<394H', pt, 0x7393d)
-    extent = max(o + (1 if pt[0x73038+o] == 255 else 3 + pt[0x73038+o+1]) for o in offsets)
+    extent = max(o + (1 if pt[0x73038+o] == 255 else 3 + (pt[0x73038+o+1]+1)//2) for o in offsets)
     add(0x400, 'font', 0, 'InterfaceFont', 0x70000, 4096, us[0x70000:0x71000])
     add(0x401, 'credits', 0, 'CreditsText', 0x73038, extent, us[0x73178:0x7393d])
     add(0x402, 'credits', 1, 'CreditsOffsets', 0x7393d, 788, us[0x7393d:0x73c51])
     end_size = struct.unpack_from('<H', pt, 0x742e1+32)[0]
     add(0x403, 'credits', 2, 'SceneCaptions', 0x1000c8, end_size, us[0x73f4c:0x742e1])
     add(0x404, 'credits', 3, 'SceneOffsets', 0x742e1, 34, us[0x742e1:0x74303])
-    return dict(version=1, rom_sha1=PT_SHA1, original_sha1=US_SHA1,
-                entries=sorted(entries, key=lambda x:x['id']), audit=audit)
+    add(0x405, 'font', 1, 'NameFontMap', 0x77c09, 363, us[0x77c09:0x77c09+363])
+    add(0x406, 'gameover', 0, 'GameOverCharacters', 0x100041, 36, us[0x475b4:0x475c4])
+    add(0x407, 'gameover', 1, 'GameOverSweep', 0x475b4, 9, us[0x474ee:0x474f6])
+    add(0x408, 'gameover', 2, 'GameOverUnfurl', 0x100065, 9, us[0x47565:0x4756d])
+    manifest = dict(version=1, rom_sha1=PT_SHA1, original_sha1=US_SHA1,
+                    entries=sorted(entries, key=lambda x:x['id']), audit=audit)
+    package = build_package(pt, manifest)
+    manifest['package_size'] = len(package)
+    manifest['package_crc32'] = struct.unpack_from('<I', package, len(package)-4)[0]
+    return manifest
+
+
+def build_package(rom, manifest):
+    entries = manifest['entries']
+    out = bytearray(b'Z3UIBR01' + struct.pack('<II', 1, len(entries))
+                    + bytes.fromhex(manifest['rom_sha1']) + bytes(4+12*len(entries)))
+    for i, entry in enumerate(entries):
+        out.extend(bytes((-len(out)) & 3))
+        data = rom[entry['offset']:entry['offset']+entry['size']]
+        if hashlib.sha256(data).hexdigest() != entry['sha256']:
+            raise ValueError('Unexpected resource: ' + entry['name'])
+        struct.pack_into('<III', out, 40+i*12, entry['id'], len(out), len(data))
+        out.extend(data)
+    struct.pack_into('<I', out, 36, len(out)+4)
+    out.extend(struct.pack('<I', zlib.crc32(out) & 0xffffffff))
+    return bytes(out)
 
 
 def main():

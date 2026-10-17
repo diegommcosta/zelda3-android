@@ -7,6 +7,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'translations'))
 
 
 class UiMappingTests(unittest.TestCase):
+    def test_generated_metadata_is_current(self):
+        import json
+        import generate_ui_sources
+        root = Path(__file__).resolve().parents[2]
+        manifest = json.loads((root / 'tools/translations/ptbr_ui_manifest.json').read_text())
+        for name, expected in generate_ui_sources.outputs(manifest).items():
+            self.assertEqual((root / name).read_text(), expected)
+
     def test_bounded_graphics_decoder(self):
         import map_ui
         self.assertEqual(map_ui.decompress(bytes([2, 1, 2, 3, 0xff]), 0), (b'\1\2\3', 5))

@@ -27,7 +27,13 @@ def main():
         subprocess.run([
             "javac", "--release", "8", "-Xlint:-options", "-d", str(directory),
             str(sources / "BpsPatcher.java"), str(sources / "TranslationExtractor.java"),
+            str(sources / "UiTranslationPackage.java"), str(sources / "UiTranslationResources.java"),
             str(ROOT / "tools/tests/TranslationImportTest.java"),
+            str(ROOT / "tools/tests/UiTranslationPackageTest.java"),
+        ], cwd=ROOT, check=True)
+        subprocess.run([
+            "java", "-cp", str(directory), "com.dishii.zelda3.UiTranslationPackageTest", str(pt), str(us),
+            str(ROOT / 'build/ui-package.bin'),
         ], cwd=ROOT, check=True)
         subprocess.run([
             "java", "-cp", str(directory), "com.dishii.zelda3.TranslationImportTest", str(pt), str(us),
